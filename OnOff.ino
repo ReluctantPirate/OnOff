@@ -16,6 +16,10 @@ void setup() {
 void loop() {
   //listen for clicks
   if (buttonSingleClicked()) {
+    FOREACH_FACE(f) {
+      messageState[f] = INERT;
+    }
+
     switch (blinkType) {
       case LIGHT:
         sendLightSignal();
@@ -68,23 +72,49 @@ void loop() {
   if (isOn) {
     dimness = 255;
   }
-  switch (blinkType) {
-    case LIGHT:
-      lightDisplay(dimness);
-      break;
-    case FIRE:
-      fireDisplay(dimness);
-      break;
-    case ELEC:
-      elecDisplay(dimness);
-      break;
-    case GRASS:
-      grassDisplay(dimness);
-      break;
-    case WATER:
-      waterDisplay(dimness);
-      break;
+
+  FOREACH_FACE(f) {
+    switch (messageState[f]) {
+      case INERT:
+        setColorOnFace(WHITE, f);
+        break;
+      case REVERSE1:
+        setColorOnFace(YELLOW, f);
+        break;
+      case REVERSE2:
+        setColorOnFace(ORANGE, f);
+        break;
+      case REVERSE3:
+        setColorOnFace(RED, f);
+        break;
+      case TURNON:
+        setColorOnFace(GREEN, f);
+        break;
+      case TURNOFF:
+        setColorOnFace(BLUE, f);
+        break;
+      case LISTENING:
+        setColorOnFace(MAGENTA, f);
+        break;
+    }
   }
+  //  switch (blinkType) {
+  //    case LIGHT:
+  //      lightDisplay(dimness);
+  //      break;
+  //    case FIRE:
+  //      fireDisplay(dimness);
+  //      break;
+  //    case ELEC:
+  //      elecDisplay(dimness);
+  //      break;
+  //    case GRASS:
+  //      grassDisplay(dimness);
+  //      break;
+  //    case WATER:
+  //      waterDisplay(dimness);
+  //      break;
+  //  }
 }
 
 void sendLightSignal() {//reverse all neigbors
@@ -177,7 +207,7 @@ void inertLoop(byte face) {
 
 void listeningLoop(byte face) {
   if (!isValueReceivedOnFaceExpired(face)) {//there is something at this face
-    if (getLastValueReceivedOnFace(face) == INERT) {//this face has resolved, so you can too
+    if (getMessageState(getLastValueReceivedOnFace(face)) == INERT) {//this face has resolved, so you can too
       messageState[face] = INERT;
     }
   } else {//no neighbor, so just go INERT
@@ -187,7 +217,7 @@ void listeningLoop(byte face) {
 
 void activeMessagingLoop(byte face) {
   if (!isValueReceivedOnFaceExpired(face)) {//there is something at this face
-    if (getLastValueReceivedOnFace(face) == LISTENING) {//this face has heard you, so you can resolve
+    if (getMessageState(getLastValueReceivedOnFace(face)) == LISTENING) {//this face has heard you, so you can resolve
       messageState[face] = INERT;
     }
   } else {//no neighbor, so just go INERT
@@ -231,7 +261,7 @@ void grassDisplay(byte dimness) {
 void waterDisplay(byte dimness) {
   setColor(dim(CYAN, dimness));
   byte spinningFace = (millis() / 700) % 6;
-  setColorOnFace(dim(WHITE,dimness), spinningFace);
+  setColorOnFace(dim(WHITE, dimness), spinningFace);
 }
 
 byte oppositeFace(byte face) {
