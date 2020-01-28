@@ -73,48 +73,49 @@ void loop() {
     dimness = 255;
   }
 
-  FOREACH_FACE(f) {
-    switch (messageState[f]) {
-      case INERT:
-        setColorOnFace(WHITE, f);
-        break;
-      case REVERSE1:
-        setColorOnFace(YELLOW, f);
-        break;
-      case REVERSE2:
-        setColorOnFace(ORANGE, f);
-        break;
-      case REVERSE3:
-        setColorOnFace(RED, f);
-        break;
-      case TURNON:
-        setColorOnFace(GREEN, f);
-        break;
-      case TURNOFF:
-        setColorOnFace(BLUE, f);
-        break;
-      case LISTENING:
-        setColorOnFace(MAGENTA, f);
-        break;
-    }
-  }
-  //  switch (blinkType) {
-  //    case LIGHT:
-  //      lightDisplay(dimness);
-  //      break;
-  //    case FIRE:
-  //      fireDisplay(dimness);
-  //      break;
-  //    case ELEC:
-  //      elecDisplay(dimness);
-  //      break;
-  //    case GRASS:
-  //      grassDisplay(dimness);
-  //      break;
-  //    case WATER:
-  //      waterDisplay(dimness);
-  //      break;
+  //  FOREACH_FACE(f) {
+  //    switch (messageState[f]) {
+  //      case INERT:
+  //        setColorOnFace(WHITE, f);
+  //        break;
+  //      case REVERSE1:
+  //        setColorOnFace(YELLOW, f);
+  //        break;
+  //      case REVERSE2:
+  //        setColorOnFace(ORANGE, f);
+  //        break;
+  //      case REVERSE3:
+  //        setColorOnFace(RED, f);
+  //        break;
+  //      case TURNON:
+  //        setColorOnFace(GREEN, f);
+  //        break;
+  //      case TURNOFF:
+  //        setColorOnFace(BLUE, f);
+  //        break;
+  //      case LISTENING:
+  //        setColorOnFace(MAGENTA, f);
+  //        break;
+  //    }
   //  }
+  
+  switch (blinkType) {
+    case LIGHT:
+      lightDisplay(dimness);
+      break;
+    case FIRE:
+      fireDisplay(dimness);
+      break;
+    case ELEC:
+      elecDisplay(dimness);
+      break;
+    case GRASS:
+      grassDisplay(dimness);
+      break;
+    case WATER:
+      waterDisplay(dimness);
+      break;
+  }
 }
 
 void sendLightSignal() {//reverse all neigbors
@@ -189,10 +190,10 @@ void inertLoop(byte face) {
           doReverse(1, face);
           break;
         case REVERSE2:
-          doReverse(1, face);
+          doReverse(2, face);
           break;
         case REVERSE3:
-          doReverse(1, face);
+          doReverse(3, face);
           break;
         case TURNON:
           isOn = true;
