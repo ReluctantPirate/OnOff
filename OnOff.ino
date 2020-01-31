@@ -98,7 +98,7 @@ void loop() {
   //        break;
   //    }
   //  }
-  
+
   switch (blinkType) {
     case LIGHT:
       lightDisplay(dimness);
@@ -142,42 +142,44 @@ void sendGrassSignal() {//an arc of reversals
 }
 
 void sendWaterSignal() {//this one is complicated actually
-  if (!isAlone) {//only do anything if you have neighbors
-    //gather all neighbor data
-    byte neighborStates[6];//0 is no neighbor, 1 is neighbor
-    byte activeNeighbors = 0;
-    byte neighborBitwise = 0;
-    FOREACH_FACE(f) {
-      if (!isValueReceivedOnFaceExpired(f)) {//neighbor
-        neighborStates[f] = 1;
-        neighborBitwise = (neighborBitwise << 1) + getIsOn(getLastValueReceivedOnFace(f));
-        activeNeighbors++;
-      } else {
-        neighborStates[f] = 0;
-      }
-    }
+  if (!isAlone()) {//only do this if you have neighbors
+    byte lastSignal = TURNOFF;
 
-    //rotate neighbor data
-    byte lastDigit = neighborBitwise & 1;
-    neighborBitwise = (neighborBitwise >> 1) + (lastDigit << (activeNeighbors - 1));
+    FOREACH_FACE(f) {//first round
+      byte neighborFace = (f + 1) % 6;
 
-    //place in neighborStates array
-    FOREACH_FACE(f) {
-      if (neighborStates[f] == 1) {
-        activeNeighbors--;
-        neighborStates[f] = (neighborBitwise >> activeNeighbors) & 1;//just gets the 1 digit we need
-      }
-    }
+      if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
+        byte neighborData = getLastValueReceivedOnFace(f);
+        if (getIsOn(neighborData) == true) {//this neighbor is on
+          lastSignal = TURNON;
 
-    //send messages on those faces
-    FOREACH_FACE(f) {
-      if (neighborStates[f] == 1) {
-        messageState[f] = TURNON;
-      } else {
-        messageState[f] = TURNOFF;
+        } else {//this neighbor is off
+          lastSignal = TURNOFF;
+
+        }
       }
-    }
-  }
+
+      messageState[neighborFace] = lastSignal;
+    }//end face loop
+
+    FOREACH_FACE(f) {//second round
+      byte neighborFace = (f + 1) % 6;
+
+      if (!isValueReceivedOnFaceExpired(f)) {//neighbor!
+        byte neighborData = getLastValueReceivedOnFace(f);
+        if (getIsOn(neighborData) == true) {//this neighbor is on
+          lastSignal = TURNON;
+
+        } else {//this neighbor is off
+          lastSignal = TURNOFF;
+
+        }
+      }
+
+      messageState[neighborFace] = lastSignal;
+    }//end face loop
+
+  }//end isAlone
 }
 
 void inertLoop(byte face) {
