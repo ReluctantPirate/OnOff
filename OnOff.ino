@@ -38,7 +38,7 @@ void loop() {
         break;
     }
     isOn = !isOn;
-    orientationFace = (orientationFace + 1) % 6;
+    //orientationFace = (orientationFace + 1) % 6;
   }
 
   if (buttonDoubleClicked()) {
@@ -72,32 +72,6 @@ void loop() {
   if (isOn) {
     dimness = 255;
   }
-
-  //  FOREACH_FACE(f) {
-  //    switch (messageState[f]) {
-  //      case INERT:
-  //        setColorOnFace(WHITE, f);
-  //        break;
-  //      case REVERSE1:
-  //        setColorOnFace(YELLOW, f);
-  //        break;
-  //      case REVERSE2:
-  //        setColorOnFace(ORANGE, f);
-  //        break;
-  //      case REVERSE3:
-  //        setColorOnFace(RED, f);
-  //        break;
-  //      case TURNON:
-  //        setColorOnFace(GREEN, f);
-  //        break;
-  //      case TURNOFF:
-  //        setColorOnFace(BLUE, f);
-  //        break;
-  //      case LISTENING:
-  //        setColorOnFace(MAGENTA, f);
-  //        break;
-  //    }
-  //  }
 
   switch (blinkType) {
     case LIGHT:
