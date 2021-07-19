@@ -1,7 +1,7 @@
 bool isOn = false;
 byte orientationFace = 0;
 
-enum messages {INERT, REVERSE, LISTENING, RESET};
+enum messages {INERT, REVERSE, LISTENING};
 byte messageState[6] = {INERT, INERT, INERT, INERT, INERT, INERT};
 bool activelyMessaging = false;
 
@@ -29,7 +29,7 @@ void loop() {
   }
 
   if (buttonDoubleClicked()) {
-    //this is where we send a big reset signal
+
   }
 
   //make sure the clouds are in sync
@@ -44,7 +44,7 @@ void loop() {
       case LISTENING:
         listeningLoop(f);
         break;
-      default:
+      case REVERSE:
         activeMessagingLoop(f);
         break;
     }
@@ -70,7 +70,7 @@ void sendLightSignal() {//reverse all neigbors
 void inertLoop(byte face) {
   if (!isValueReceivedOnFaceExpired(face)) {//there is something at this face
     byte neighborData = getLastValueReceivedOnFace(face);
-    if (getMessageState(neighborData) != INERT && getMessageState(neighborData) != LISTENING) {//this face is actively communicating something to me
+    if (getMessageState(neighborData) == REVERSE) {//this face is actively communicating something to me
       messageState[face] = LISTENING;
       isOn = !isOn;
     }
