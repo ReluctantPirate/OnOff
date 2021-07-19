@@ -5,6 +5,9 @@ enum messages {INERT, REVERSE, LISTENING};
 byte messageState[6] = {INERT, INERT, INERT, INERT, INERT, INERT};
 bool activelyMessaging = false;
 
+enum resetState {PLAYING, RESET, RESOLVE};
+byte resetState = PLAYING;
+
 // SYNCHRONIZED WAVES
 Timer syncTimer;
 #define PERIOD_DURATION 3000
@@ -29,7 +32,8 @@ void loop() {
   }
 
   if (buttonDoubleClicked()) {
-
+    resetState = RESET;
+    isOn = false;
   }
 
   //make sure the clouds are in sync
@@ -50,9 +54,12 @@ void loop() {
     }
   }
 
+  //do RESET stuff
+  resetLoop();
+
   //set communication
   FOREACH_FACE(f) {
-    byte sendData = (isOn << 5) | (messageState[f] << 1) | (syncVal);
+    byte sendData = (resetState << 3) | (messageState[f] << 1) | (syncVal);
     setValueSentOnFace(sendData, f);
   }
 
@@ -97,6 +104,46 @@ void activeMessagingLoop(byte face) {
   }
 }
 
+void resetLoop() {
+  //here we just do all the reset logic
+  if (resetState == PLAYING) {
+    //listen for RESET signals
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f)) {
+        byte neighborData = getLastValueReceivedOnFace(f);
+        if (getResetState(neighborData) == RESET) {
+          resetState = RESET;
+          isOn = false;
+        }
+      }
+    }
+  } else if (resetState == RESET) {
+    //make sure everyone else is in RESET
+    //default to RESOLVE
+    resetState = RESOLVE;
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f)) {
+        byte neighborData = getLastValueReceivedOnFace(f);
+        if (getResetState(neighborData) == PLAYING) {//need to stay in RESET
+          resetState = RESET;
+        }
+      }
+    }
+  } else if (resetState == RESOLVE) {
+    //make sure everyone else has reset back to PLAYING
+    //default to PLAYING
+    resetState = PLAYING;
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f)) {
+        byte neighborData = getLastValueReceivedOnFace(f);
+        if (getResetState(neighborData) == RESET) {//need to stay in RESET
+          resetState = RESOLVE;
+        }
+      }
+    }
+  }
+}
+
 void lightDisplay() {
   if (isOn) {
     cloudDisplay();
@@ -109,12 +156,12 @@ byte getMessageState(byte data) {
   return ((data >> 1) & 7);//bits 4-5
 }
 
-bool getIsOn(byte data) {
-  return (data >> 5); //bit 1
-}
-
 bool getSyncVal(byte data) {
   return (data & 1);//returns bit 6
+}
+
+byte getResetState(byte data) {
+  return (data >> 3);
 }
 
 void syncLoop() {
