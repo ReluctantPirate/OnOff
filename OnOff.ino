@@ -1,9 +1,17 @@
 bool isOn = false;
 byte orientationFace = 0;
 
-enum messages {INERT, REVERSE1, LISTENING, RESET};
+enum messages {INERT, REVERSE, LISTENING, RESET};
 byte messageState[6] = {INERT, INERT, INERT, INERT, INERT, INERT};
 bool activelyMessaging = false;
+
+// SYNCHRONIZED WAVES
+Timer syncTimer;
+#define PERIOD_DURATION 3000
+#define PERIOD_DURATION_ALT 2000
+#define BUFFER_DURATION 200
+byte neighborState[6];
+byte syncVal = 0;
 
 void setup() {
 
@@ -18,12 +26,14 @@ void loop() {
 
     sendLightSignal();
     isOn = !isOn;
-    //orientationFace = (orientationFace + 1) % 6;
   }
 
   if (buttonDoubleClicked()) {
-
+    //this is where we send a big reset signal
   }
+
+  //make sure the clouds are in sync
+  syncLoop();
 
   //listen on all faces for messaging
   FOREACH_FACE(f) {
@@ -42,7 +52,7 @@ void loop() {
 
   //set communication
   FOREACH_FACE(f) {
-    byte sendData = (isOn << 5) + (messageState[f]);
+    byte sendData = (isOn << 5) | (messageState[f] << 1) | (syncVal);
     setValueSentOnFace(sendData, f);
   }
 
@@ -53,7 +63,7 @@ void loop() {
 
 void sendLightSignal() {//reverse all neigbors
   FOREACH_FACE(f) {
-    messageState[f] = REVERSE1;
+    messageState[f] = REVERSE;
   }
 }
 
@@ -62,7 +72,7 @@ void inertLoop(byte face) {
     byte neighborData = getLastValueReceivedOnFace(face);
     if (getMessageState(neighborData) != INERT && getMessageState(neighborData) != LISTENING) {//this face is actively communicating something to me
       messageState[face] = LISTENING;
-      doReverse(1, face);
+      isOn = !isOn;
     }
   }
 }
@@ -87,22 +97,73 @@ void activeMessagingLoop(byte face) {
   }
 }
 
-void doReverse(byte num, byte face) {
-  isOn = !isOn;
-}
-
-void lightDisplay(byte dimness) {
-  setColor(dim(WHITE, dimness));
-}
-
-byte oppositeFace(byte face) {
-  return ((face + 3) % 6);
+void lightDisplay() {
+  if (isOn) {
+    cloudDisplay();
+  } else {
+    setColor(dim(BLUE, 150));
+  }
 }
 
 byte getMessageState(byte data) {
-  return (data & 7);//bits 4-5-6
+  return ((data >> 1) & 7);//bits 4-5
 }
 
 bool getIsOn(byte data) {
   return (data >> 5); //bit 1
+}
+
+bool getSyncVal(byte data) {
+  return (data & 1);//returns bit 6
+}
+
+void syncLoop() {
+
+  bool didNeighborChange = false;
+
+  // look at our neighbors to determine if one of them passed go (changed value)
+  // note: absent neighbors changing to not absent don't count
+  FOREACH_FACE(f) {
+    if (isValueReceivedOnFaceExpired(f)) {
+      neighborState[f] = 2; // this is an absent neighbor
+    }
+    else {
+      byte data = getLastValueReceivedOnFace(f);
+      if (neighborState[f] != 2) {  // wasn't absent
+        if (getSyncVal(data) != neighborState[f]) { // passed go (changed value)
+          didNeighborChange = true;
+        }
+      }
+
+      neighborState[f] = getSyncVal(data);  // update our record of state now that we've check it
+    }
+  }
+
+  // if our neighbor passed go and we haven't done so within the buffer period, catch up and pass go as well
+  // if we are due to pass go, i.e. timer expired, do so
+  if ( (didNeighborChange && syncTimer.getRemaining() < PERIOD_DURATION - BUFFER_DURATION)
+       || syncTimer.isExpired()
+     ) {
+
+    if (random(20) == 0) {
+      syncTimer.set(PERIOD_DURATION_ALT); // aim to pass go in the defined duration
+    } else {
+      syncTimer.set(PERIOD_DURATION); // aim to pass go in the defined duration
+
+    }
+    syncVal = !syncVal; // change our value everytime we pass go
+  }
+}
+
+#define CLOUD_MIN_BRIGHTNESS 200
+#define CLOUD_MAX_BRIGHTNESS 255
+
+void cloudDisplay() { //just displays the water beneath any piece with missing bits (lasers, mirrors, damaged ships)
+
+  byte syncProgress = map(syncTimer.getRemaining(), 0, PERIOD_DURATION, 0, 255);
+  byte syncProgressSin = sin8_C(syncProgress);
+  byte syncProgressMapped = map(syncProgressSin, 0, 255, CLOUD_MIN_BRIGHTNESS, CLOUD_MAX_BRIGHTNESS);
+
+  setColor(dim(WHITE, syncProgressMapped));
+
 }
