@@ -146,9 +146,12 @@ void resetLoop() {
 
 void lightDisplay() {
   if (isOn) {
-    cloudDisplay();
+    setColor(WHITE);
   } else {
-    setColor(dim(BLUE, 150));
+    setColor(OFF);
+    setColorOnFace(dim(BLUE, 100), 0);
+    setColorOnFace(dim(BLUE, 100), 2);
+    setColorOnFace(dim(BLUE, 100), 4);
   }
 }
 
