@@ -1,21 +1,22 @@
 /*
- * On-Off Clouds Game
- * 
- * Basic shared game state for play, win, and reset
+   On-Off Clouds Game
+
+   Basic shared game state for play, win, and reset
 */
 
 enum signalStates {INERT, GO, RESOLVE};
 byte signalState = INERT;
 
-enum gameModes {PLAY, ACTION, WIN, RESET};//these modes will simply be different colors
+enum gameModes {PLAY, WIN, RESET};//these modes will simply be different colors
 byte gameMode = PLAY;//the default mode when the game begins
 
 bool isOn = false;
 
-bool myPressState = false;
+enum pressStates {NONE, PRESS, ACK};
+byte myPressStates[6] = {NONE, NONE, NONE, NONE, NONE, NONE};
+byte wasPressed = false;
 
 Timer resetTimer;
-Timer actionTimer;
 
 void setup() {
 
@@ -41,9 +42,6 @@ void loop() {
     case PLAY:
       playLoop();
       break;
-    case ACTION:
-      actionLoop();
-      break;
     case WIN:
       winLoop();
       break;
@@ -54,8 +52,10 @@ void loop() {
 
   // communicate with neighbors
   // share both signalState (i.e. when to change) and the game mode
-  byte sendData = (myPressState << 4) + (signalState << 2) + (gameMode);
-  setValueSentOnAllFaces(sendData);
+  FOREACH_FACE(f) {
+    byte sendData = (myPressStates[f] << 4) + (signalState << 2) + (gameMode);
+    setValueSentOnFace(sendData, f);
+  }
 }
 
 /*
@@ -69,36 +69,86 @@ void playLoop() {
   }
 
   if (buttonSingleClicked()) {
-    // communicate to neighbors to change
-    myPressState = true;
-    changeMode(ACTION);
+    // communicate to each neighbor to change
+    FOREACH_FACE(f) {
+      myPressStates[f] = PRESS;
+    }
+    // toggle on/off
+    isOn = !isOn;
+
+    wasPressed = true;
   }
 
-  if(isOn) {
+  // communicate with neighbors
+  FOREACH_FACE(f) {
+    if (!isValueReceivedOnFaceExpired(f)) {
+      byte neighborPressState = getPressState(getLastValueReceivedOnFace(f));
+      if (myPressStates[f] == NONE) {
+        if (neighborPressState == PRESS) {
+          myPressStates[f] = ACK;
+        }
+      }
+      else if (myPressStates[f] == PRESS) {
+        if (neighborPressState == ACK) {
+          myPressStates[f] = ACK;
+        }
+      }
+      else if (myPressStates[f] == ACK && !wasPressed) {
+        if (neighborPressState != PRESS) {
+          myPressStates[f] = NONE;
+          isOn = !isOn;
+        }
+      }
+    }
+  }
+
+  // check that all acknowledged and then return to none
+  if (wasPressed) {
+    bool allNeighborsReceivedPress = true;
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f)) {
+        if (myPressStates[f] == ACK) {
+          continue;
+        }
+        else {
+          allNeighborsReceivedPress = false;
+        }
+      }
+    }
+    if (allNeighborsReceivedPress) {
+      FOREACH_FACE(f) {
+        myPressStates[f] = NONE;
+        wasPressed = false;
+      }
+    }
+  }
+
+  if (isOn) {
     setColor(WHITE);
   }
   else {
     setColor(OFF);
-    setColorOnFace(dim(BLUE,128), 0);
-    setColorOnFace(dim(BLUE,128), 2);
-    setColorOnFace(dim(BLUE,128), 4);
+    setColorOnFace(dim(BLUE, 128), 0);
+    setColorOnFace(dim(BLUE, 128), 2);
+    setColorOnFace(dim(BLUE, 128), 4);
   }
+
+  //  // Debug by showing comm_states
+  //  FOREACH_FACE(f) {
+  //    switch(myPressStates[f]) {
+  //      case NONE:
+  //        setColorOnFace(WHITE, f);
+  //        break;
+  //      case PRESS:
+  //        setColorOnFace(RED, f);
+  //        break;
+  //      case ACK:
+  //        setColorOnFace(YELLOW, f);
+  //        break;
+  //    }
+  //  }
 }
 
-
-/*
-   Action Loop
-   do this when a piece is switched
-*/
-void actionLoop() {
-  // check for win condition...
-
-  // return to play
-  if(actionTimer.isExpired()) {
-    myPressState = false;
-    changeMode(PLAY);
-  }
-}
 
 /*
    Win Loop
@@ -115,10 +165,13 @@ void winLoop() {
 void resetLoop() {
 
   isOn = false; // return to off
+  FOREACH_FACE(f) {
+    myPressStates[f] = NONE;
+  }
 
-  setColor(dim(WHITE,resetTimer.getRemaining()));
+  setColor(dim(WHITE, resetTimer.getRemaining()));
   // TODO: maybe do a 1 second animation to show that a wipe has happened then return to play..
-  if(resetTimer.isExpired()) {
+  if (resetTimer.isExpired()) {
     changeMode(PLAY);
   }
 }
@@ -134,33 +187,11 @@ void changeMode( byte mode ) {
   if (gameMode == PLAY) {
     // nothing at the moment
   }
-  else if (gameMode == ACTION) {
-    flip();
-    actionTimer.set(255);
-  }
   else if (gameMode == WIN) {
     // nothing at the moment
   }
   else if (gameMode == RESET) {
     resetTimer.set(255);
-  }
-}
-
-void flip() {
-  // flip state
-  // if my neighbor is the pressed one, then I flip
-  FOREACH_FACE(f) {
-    if(!isValueReceivedOnFaceExpired(f)) {
-      byte neighborPressState = getPressState(getLastValueReceivedOnFace(f));
-      if(neighborPressState == true) {
-        isOn = !isOn;
-        break;
-      }
-    }
-  }
-
-  if(myPressState == true) {
-    isOn = !isOn;
   }
 }
 
@@ -225,5 +256,5 @@ byte getSignalState(byte data) {
 }
 
 byte getPressState(byte data) {
-  return ((data >> 4) & 1);//returns bit A and B
+  return ((data >> 4) & 3);//returns bit A and B
 }
